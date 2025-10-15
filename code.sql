@@ -1,36 +1,3 @@
-# goit-rdb-fp
-
-### Опис завдання
-
-1. Завантажте дані:
-   - Створіть схему pandemic у базі даних за допомогою SQL-команди.
-   - Оберіть її як схему за замовчуванням за допомогою SQL-команди.
-   - Імпортуйте дані за допомогою Import wizard так, як ви вже робили це у темі 3.
-   - Продивіться дані, щоб бути у контексті.
-
-2. Нормалізуйте таблицю infectious_cases до 3ї нормальної форми. Збережіть у цій же схемі дві таблиці з нормалізованими даними.
-
-3. Проаналізуйте дані:
-   - Для кожної унікальної комбінації Entity та code або їх id порахуйте середнє, мінімальне, максимальне значення та суму для атрибута number_rabies.
-   - Результат відсортуйте за порахованим середнім значенням у порядку спадання.
-   - Оберіть тільки 10 рядків для виведення на екран.
-
-4. Побудуйте колонку різниці в роках.
-
-   Для оригінальної або нормованої таблиці для колонки year побудуйте з використанням вбудованих SQL-функцій:
-   - атрибут, що створює дату першого січня відповідного року,
-   - атрибут, що дорівнює поточній даті,
-   - атрибут, що дорівнює різниці в роках двох вищезгаданих колонок.
-
-5. Побудуйте власну функцію. 
-
-   Створіть і використайте функцію, що будує такий же атрибут, як і в попередньому завданні: функція має приймати на вхід значення року, а повертати різницю в роках між поточною датою та датою, створеною з атрибута року (1996 рік → ‘1996-01-01’).
-
-___
-
-## p1
-
-```sql
 CREATE SCHEMA IF NOT EXISTS pandemic;
 USE pandemic;
 
@@ -49,6 +16,7 @@ CREATE TABLE raw_infectious_cases (
   number_cholera_cases TEXT
 );
 
+-- 'Import wizard' чомусь дуже довго додавав (ноут поганий...). Тому зробив так...
 LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/infectious_cases.csv'
 INTO TABLE raw_infectious_cases
 FIELDS TERMINATED BY ',' 
@@ -57,15 +25,9 @@ LINES TERMINATED BY '\n'
 IGNORE 1 ROWS;
 
 SELECT * FROM raw_infectious_cases LIMIT 50;
-```
 
-![p1](./p1/p1.png)
 
-___
 
-## p2
-
-```sql
 DROP TABLE IF EXISTS infectious_cases;
 DROP TABLE IF EXISTS entities;
 
@@ -127,16 +89,9 @@ UNION ALL
 SELECT 'infectious_cases' AS table_name, COUNT(*) FROM infectious_cases;
 
 SELECT * FROM infectious_cases;
-```
 
-![p2_1](./p2/p2_1.png)
-![p2_2](./p2/p2_2.png)
 
-___
 
-## p3
-
-```sql
 SELECT 
   e.entity,
   e.code,
@@ -150,15 +105,9 @@ WHERE i.number_rabies IS NOT NULL
 GROUP BY e.entity, e.code
 ORDER BY avg_rabies DESC
 LIMIT 10;
-```
 
-![p3](./p3/p3.png)
 
-___
 
-## p4
-
-```sql
 UPDATE infectious_cases
 SET 
   start_date = MAKEDATE(year, 1),
@@ -176,15 +125,9 @@ SELECT
 FROM infectious_cases i
 JOIN entities e ON i.entity_id = e.entity_id
 ORDER BY i.year ASC;
-```
 
-![p4](./p4/p4.png)
 
-___
 
-## p5
-
-```sql
 DROP FUNCTION IF EXISTS subtract_now_year;
 
 DELIMITER //
@@ -214,43 +157,35 @@ FROM infectious_cases i
 JOIN entities e ON i.entity_id = e.entity_id
 ORDER BY i.year ASC
 LIMIT 50;
-```
 
-![p5](./p5/p5_1.png)
 
-___
 
-## p5 extra
-
-```sql
-DROP FUNCTION IF EXISTS illnesses_per_period;
+DROP FUNCTION IF EXISTS subtract_now_year;
 
 DELIMITER //
 
-CREATE FUNCTION illnesses_per_period(illnesses_per_year DOUBLE, period INT)
-RETURNS DOUBLE
+CREATE FUNCTION subtract_now_year(year_input INT)
+RETURNS INT
 DETERMINISTIC
 NO SQL
 BEGIN
-  RETURN illnesses_per_year / period;
+  DECLARE start_date DATE;
+  DECLARE year_diff INT;
+
+  SET start_date = MAKEDATE(year_input, 1);
+  SET year_diff = TIMESTAMPDIFF(YEAR, start_date, CURDATE());
+
+  RETURN year_diff;
 END //
 
 DELIMITER ;
 
 SELECT 
+  i.id,
   e.entity AS country,
   i.year,
-  i.number_cholera_cases,
-  illnesses_per_period(i.number_cholera_cases, 12) AS cholera_per_month,
-  illnesses_per_period(i.number_cholera_cases, 4) AS cholera_per_quarter,
-  illnesses_per_period(i.number_cholera_cases, 2) AS cholera_per_halfyear
+  subtract_now_year(i.year) AS year_diff
 FROM infectious_cases i
 JOIN entities e ON i.entity_id = e.entity_id
-WHERE i.number_cholera_cases IS NOT NULL
 ORDER BY i.year ASC
 LIMIT 50;
-```
-
-![p5_extra](./p5/p5_2.png)
-
-___
